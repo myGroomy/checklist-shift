@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 17 24 39;
+    --muted: 243 244 246;
+    --muted-foreground: 107 114 128;
+    --border: 229 231 235;
+    --ring: 31 41 55;
+    --primary: 31 41 55;
+    --primary-foreground: 255 255 255;
+    --secondary: 243 244 246;
+    --secondary-foreground: 17 24 39;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --accent: 243 244 246;
+    --accent-foreground: 17 24 39;
+    --popover: 255 255 255;
+    --popover-foreground: 17 24 39;
+    --card: 255 255 255;
+    --card-foreground: 17 24 39;
+  }
+
+  .dark {
+    --background: 17 24 39;
+    --foreground: 249 250 251;
+    --muted: 31 41 55;
+    --muted-foreground: 156 163 175;
+    --border: 55 65 81;
+    --ring: 209 213 219;
+    --primary: 249 250 251;
+    --primary-foreground: 17 24 39;
+    --secondary: 31 41 55;
+    --secondary-foreground: 249 250 251;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --accent: 31 41 55;
+    --accent-foreground: 249 250 251;
+    --popover: 17 24 39;
+    --popover-foreground: 249 250 251;
+    --card: 31 41 55;
+    --card-foreground: 249 250 251;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+
+  /* Focus visible */
+  .focus-visible-ring:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Touch target minimum 48px */
+  .touch-target {
+    @apply min-h-[48px] min-w-[48px];
+  }
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+.animate-slide-up { animation: slide-up 0.2s ease-out; }
+.animate-slide-down { animation: slide-down 0.2s ease-out; }
+.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+
+/* PWA specific */
+@media (display-mode: standalone) {
+  /* Sembunyikan browser chrome elements saat PWA mode */
+  .pwa-hidden {
+    display: none !important;
+  }
+}
+
+/* Print styles for report */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .shadow, .shadow-lg, .shadow-xl {
+    box-shadow: none !important;
+  }
+  .border {
+    border-color: #e5e7eb !important;
+  }
+}

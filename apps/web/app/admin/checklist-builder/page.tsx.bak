@@ -1,0 +1,665 @@
+// Admin Checklist Builder - 3 Panel Layout
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/hooks/useAuth";
+import {
+  useBranches,
+  useShiftDefinitions,
+  useSopCategories,
+  useChecklistPoints,
+  useCreateSopCategory,
+  useUpdateSopCategory,
+  useReorderSopCategories,
+  useCreateChecklistPoint,
+  useUpdateChecklistPoint,
+  useReorderChecklistPoints,
+  useDuplicateChecklistPoint,
+} from "@/lib/hooks/useAdmin";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  GripVertical,
+  Copy,
+  ChevronRight,
+  ChevronLeft,
+  Eye,
+  ArrowUp,
+  ArrowDown,
+  Save,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
+interface Category {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface ChecklistPoint {
+  id: string;
+  sop_category_id: string;
+  title: string;
+  instruction: string;
+  input_type: "centang" | "foto" | "teks" | "angka" | "ok_tidak_ok";
+  is_required: boolean;
+  target_time: string | null;
+  tolerance_minutes: number | null;
+  active_days: string;
+  number_min: number | null;
+  number_max: number | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+const INPUT_TYPES = [
+  { value: "centang", label: "Centang" },
+  { value: "foto", label: "Foto" },
+  { value: "teks", label: "Teks" },
+  { value: "angka", label: "Angka" },
+  { value: "ok_tidak_ok", label: "OK / Tidak OK" },
+];
+
+const DAYS = [
+  { value: 1, label: "Senin" },
+  { value: 2, label: "Selasa" },
+  { value: 3, label: "Rabu" },
+  { value: 4, label: "Kamis" },
+  { value: 5, label: "Jumat" },
+  { value: 6, label: "Sabtu" },
+  { value: 7, label: "Minggu" },
+];
+
+export default function ChecklistBuilderPage() {
+  const { data: user } = useAuth();
+  const { data: branchesData } = useBranches();
+  const branches = branchesData?.branches ?? [];
+
+  const [selectedBranchId, setSelectedBranchId] = useState(branches[0]?.id ?? "");
+  const [selectedShiftDefId, setSelectedShiftDefId] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+
+  const { data: shiftsData } = useShiftDefinitions(selectedBranchId);
+  const shifts = shiftsData?.shifts ?? [];
+
+  const { data: categoriesData, isLoading: categoriesLoading, refetch: refetchCategories } = useSopCategories(selectedBranchId, selectedShiftDefId);
+  const categories = categoriesData?.categories ?? [];
+
+  const { data: pointsData, isLoading: pointsLoading } = useChecklistPoints(selectedBranchId, selectedCategoryId ?? undefined);
+  const points = pointsData?.points ?? [];
+
+  const createCategory = useCreateSopCategory();
+  const updateCategory = useUpdateSopCategory();
+  const reorderCategories = useReorderSopCategories();
+  const createPoint = useCreateChecklistPoint();
+  const updatePoint = useUpdateChecklistPoint();
+  const reorderPoints = useReorderChecklistPoints();
+  const duplicatePoint = useDuplicateChecklistPoint();
+
+  // Panel widths state
+  const [panelWidths, setPanelWidths] = useState({ left: 30, center: 40, right: 30 });
+
+  // Forms
+  const [categoryForm, setCategoryForm] = useState({ name: "", sort_order: 0, is_active: true });
+  const [pointForm, setPointForm] = useState({
+    sop_category_id: "",
+    title: "",
+    instruction: "",
+    input_type: "centang" as const,
+    is_required: true,
+    target_time: "",
+    tolerance_minutes: 15,
+    active_days: "",
+    number_min: "",
+    number_max: "",
+    sort_order: 0,
+    is_active: true,
+  });
+
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingPoint, setEditingPoint] = useState<ChecklistPoint | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Reset forms when selection changes
+  useEffect(() => {
+    if (selectedCategoryId) {
+      const cat = categories.find((c) => c.id === selectedCategoryId);
+      if (cat) {
+        setCategoryForm({ name: cat.name, sort_order: cat.sort_order, is_active: cat.is_active });
+        setEditingCategory(cat);
+      }
+    } else {
+      setCategoryForm({ name: "", sort_order: categories.length, is_active: true });
+      setEditingCategory(null);
+    }
+  }, [selectedCategoryId, categories]);
+
+  useEffect(() => {
+    if (selectedCategoryId) {
+      setPointForm({
+        sop_category_id: selectedCategoryId,
+        title: "",
+        instruction: "",
+        input_type: "centang",
+        is_required: true,
+        target_time: "",
+        tolerance_minutes: 15,
+        active_days: "",
+        number_min: "",
+        number_max: "",
+        sort_order: points.length,
+        is_active: true,
+      });
+      setEditingPoint(null);
+    }
+  }, [selectedCategoryId, points.length]);
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createCategory.mutateAsync({
+        branch_id: selectedBranchId,
+        shift_definition_id: selectedShiftDefId,
+        ...categoryForm,
+      });
+      setCategoryForm({ name: "", sort_order: categories.length, is_active: true });
+      setEditingCategory(null);
+      refetchCategories();
+    } catch (err) {
+      alert("Gagal membuat kategori");
+    }
+  };
+
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    try {
+      await updateCategory.mutateAsync({
+        id: editingCategory.id,
+        branch_id: selectedBranchId,
+        ...categoryForm,
+      });
+      setEditingCategory(null);
+      refetchCategories();
+    } catch (err) {
+      alert("Gagal update kategori");
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm("Hapus kategori ini? Semua butir di dalamnya akan ikut terhapus.")) return;
+    try {
+      await updateCategory.mutateAsync({ id, branch_id: selectedBranchId, is_active: false });
+      if (selectedCategoryId === id) setSelectedCategoryId("");
+      refetchCategories();
+    } catch (err) {
+      alert("Gagal hapus kategori");
+    }
+  };
+
+  const handleReorderCategories = async (newOrder: string[]) => {
+    try {
+      await reorderCategories.mutateAsync({ branch_id: selectedBranchId, shift_definition_id: selectedShiftDefId, category_ids: newOrder });
+      refetchCategories();
+    } catch (err) {
+      alert("Gagal mengubah urutan");
+    }
+  };
+
+  const handleCreatePoint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createPoint.mutateAsync({
+        branch_id: selectedBranchId,
+        ...pointForm,
+        number_min: pointForm.number_min ? Number(pointForm.number_min) : null,
+        number_max: pointForm.number_max ? Number(pointForm.number_max) : null,
+      });
+      setPointForm({ ...pointForm, sort_order: points.length + 1 });
+    } catch (err) {
+      alert("Gagal membuat butir");
+    }
+  };
+
+  const handleUpdatePoint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPoint) return;
+    try {
+      await updatePoint.mutateAsync({
+        id: editingPoint.id,
+        branch_id: selectedBranchId,
+        ...pointForm,
+        number_min: pointForm.number_min ? Number(pointForm.number_min) : null,
+        number_max: pointForm.number_max ? Number(pointForm.number_max) : null,
+      });
+      setEditingPoint(null);
+    } catch (err) {
+      alert("Gagal update butir");
+    }
+  };
+
+  const handleDeletePoint = async (id: string) => {
+    if (!confirm("Hapus butir ini?")) return;
+    try {
+      await updatePoint.mutateAsync({ id, branch_id: selectedBranchId, is_active: false });
+      if (editingPoint?.id === id) setEditingPoint(null);
+    } catch (err) {
+      alert("Gagal hapus butir");
+    }
+  };
+
+  const handleDuplicatePoint = async (id: string) => {
+    try {
+      await duplicatePoint.mutateAsync({ point_id: id, branch_id: selectedBranchId });
+    } catch (err) {
+      alert("Gagal duplikat butir");
+    }
+  };
+
+  const handleReorderPoints = async (newOrder: string[]) => {
+    if (!selectedCategoryId) return;
+    try {
+      await reorderPoints.mutateAsync({ branch_id: selectedBranchId, category_id: selectedCategoryId, point_ids: newOrder });
+    } catch (err) {
+      alert("Gagal mengubah urutan");
+    }
+  };
+
+  const moveCategory = (id: string, direction: "up" | "down") => {
+    const idx = categories.findIndex((c) => c.id === id);
+    if ((direction === "up" && idx === 0) || (direction === "down" && idx === categories.length - 1)) return;
+    const newOrder = [...categories];
+    [newOrder[idx], newOrder[idx + (direction === "up" ? -1 : 1)]] = [newOrder[idx + (direction === "up" ? -1 : 1)], newOrder[idx]];
+    handleReorderCategories(newOrder.map((c) => c.id));
+  };
+
+  const movePoint = (id: string, direction: "up" | "down") => {
+    const catPoints = points.filter((p) => p.sop_category_id === selectedCategoryId);
+    const idx = catPoints.findIndex((p) => p.id === id);
+    if ((direction === "up" && idx === 0) || (direction === "down" && idx === catPoints.length - 1)) return;
+    const newOrder = [...catPoints];
+    [newOrder[idx], newOrder[idx + (direction === "up" ? -1 : 1)]] = [newOrder[idx + (direction === "up" ? -1 : 1)], newOrder[idx]];
+    handleReorderPoints(newOrder.map((p) => p.id));
+  };
+
+  if (!selectedBranchId) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-gray-500 dark:text-gray-400">Pilih cabang terlebih dahulu</p>
+      </div>
+    );
+  }
+
+  if (!selectedShiftDefId) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-gray-500 dark:text-gray-400">Pilih definisi shift terlebih dahulu</p>
+      </div>
+    );
+  }
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+  const categoryPoints = points.filter((p) => p.sop_category_id === selectedCategoryId);
+
+  return (
+    <div className="h-[calc(100vh-200px)] flex flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between p-4 border-b bg-white dark:bg-gray-800">
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedBranchId}
+            onChange={(e) => { setSelectedBranchId(e.target.value); setSelectedShiftDefId(""); setSelectedCategoryId(null); }}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select
+            value={selectedShiftDefId}
+            onChange={(e) => { setSelectedShiftDefId(e.target.value); setSelectedCategoryId(null); }}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Pilih Shift</option>
+            {shifts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowPreview(!showPreview)}
+            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+          >
+            <Eye className="w-4 h-4" /> Pratinjau Petugas
+          </button>
+        </div>
+      </div>
+
+      {/* Main 3-Panel Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Panel 1: Categories Tree */}
+        <div
+          className={`border-r bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-200 ${
+            panelWidths.left === 0 ? "w-0 min-w-0" : "w-[30%] min-w-[280px] max-w-[400px]"
+          }`}
+          style={{ width: `${panelWidths.left}%` }}
+        >
+          <div className="p-4 border-b">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Kategori SOP</h3>
+            <form onSubmit={handleCreateCategory} className="space-y-2 mb-4">
+              <input
+                type="text"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                placeholder="Nama kategori baru"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex gap-2">
+                <button type="submit" className="flex-1 py-2 px-3 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Tambah</button>
+                <button type="button" onClick={() => { setCategoryForm({ name: "", sort_order: categories.length, is_active: true }); setEditingCategory(null); }} className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">Batal</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="p-4 space-y-2">
+            {categoriesLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+                ))}
+              </div>
+            ) : categories.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Belum ada kategori. Tambah di atas.</p>
+            ) : (
+              <ul className="space-y-1">
+                {categories.map((cat) => (
+                  <li key={cat.id} className="relative">
+                    <button
+                      onClick={() => setSelectedCategoryId(cat.id)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between gap-2 ${
+                        selectedCategoryId === cat.id
+                          ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700"
+                          : "hover:bg-gray-100 dark:hover:bg-gray-900/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                        <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{cat.name}</span>
+                        {!cat.is_active && <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">Nonaktif</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); moveCategory(cat.id, "up"); }} className="p-1 text-gray-400 hover:text-blue-600" title="Naik"><ChevronUp className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); moveCategory(cat.id, "down"); }} className="p-1 text-gray-400 hover:text-blue-600" title="Turun"><ChevronDown className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setCategoryForm({ name: cat.name, sort_order: cat.sort_order, is_active: cat.is_active }); setEditingCategory(cat); }} className="p-1 text-gray-400 hover:text-blue-600" title="Edit"><Edit className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} className="p-1 text-gray-400 hover:text-red-600" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Resizer 1 */}
+        <div
+          className="w-1 cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-blue-300 transition-colors flex items-center justify-center"
+          onMouseDown={(e) => {
+            const startX = e.clientX;
+            const startLeft = panelWidths.left;
+            const onMouseMove = (e: MouseEvent) => {
+              const delta = ((e.clientX - startX) / window.innerWidth) * 100;
+              const newLeft = Math.max(15, Math.min(50, startLeft + delta));
+              setPanelWidths((prev) => ({ ...prev, left: newLeft }));
+            };
+            const onMouseUp = () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+          }}
+        >
+          <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        </div>
+
+        {/* Panel 2: Checklist Points */}
+        <div
+          className={`border-r bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-200 flex flex-col ${
+            panelWidths.center === 0 ? "w-0 min-w-0" : "w-[40%] min-w-[320px] max-w-[500px]"
+          }`}
+          style={{ width: `${panelWidths.center}%` }}
+        >
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                Butir Checklist {selectedCategory ? `• ${selectedCategory.name}` : ""}
+              </h3>
+              {selectedCategoryId && (
+                <button
+                  onClick={() => { setPointForm({ ...pointForm, sort_order: categoryPoints.length }); setEditingPoint(null); }}
+                  className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Butir
+                </button>
+              )}
+            </div>
+              <form onSubmit={editingPoint ? handleUpdatePoint : handleCreatePoint} className="space-y-3 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/50 mb-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{editingPoint ? "Edit Butir" : "Butir Baru"}</h4>
+
+                <input
+                  type="text"
+                  value={pointForm.title}
+                  onChange={(e) => setPointForm({ ...pointForm, title: e.target.value })}
+                  placeholder="Judul butir *"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+
+                <textarea
+                  value={pointForm.instruction}
+                  onChange={(e) => setPointForm({ ...pointForm, instruction: e.target.value })}
+                  placeholder="Instruksi (opsional)"
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={pointForm.input_type}
+                    onChange={(e) => setPointForm({ ...pointForm, input_type: e.target.value as typeof pointForm.input_type })}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {INPUT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={pointForm.is_required} onChange={(e) => setPointForm({ ...pointForm, is_required: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Wajib</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="time"
+                    value={pointForm.target_time}
+                    onChange={(e) => setPointForm({ ...pointForm, target_time: e.target.value })}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Target jam (opsional)"
+                  />
+                  <input
+                    type="number"
+                    value={pointForm.tolerance_minutes}
+                    onChange={(e) => setPointForm({ ...pointForm, tolerance_minutes: Number(e.target.value) || 15 })}
+                    min={0}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Toleransi (menit)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Hari Aktif (1=Senin..7=Minggu, pisahkan koma)</label>
+                  <input
+                    type="text"
+                    value={pointForm.active_days}
+                    onChange={(e) => setPointForm({ ...pointForm, active_days: e.target.value })}
+                    placeholder="Kosong = setiap hari, contoh: 1,2,3,4,5"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {(pointForm.input_type === "angka") && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      value={pointForm.number_min}
+                      onChange={(e) => setPointForm({ ...pointForm, number_min: e.target.value })}
+                      placeholder="Min (opsional)"
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      value={pointForm.number_max}
+                      onChange={(e) => setPointForm({ ...pointForm, number_max: e.target.value })}
+                      placeholder="Max (opsional)"
+                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={pointForm.is_active} onChange={(e) => setPointForm({ ...pointForm, is_active: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Aktif</span>
+                </label>
+
+                <div className="flex gap-2 pt-2">
+                  <button type="submit" className="flex-1 py-2 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                    {editingPoint ? "Update" : "Tambah Butir"}
+                  </button>
+                  {editingPoint && (
+                    <button type="button" onClick={() => { setEditingPoint(null); setPointForm({ ...pointForm, sort_order: categoryPoints.length }); }} className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600">Batal</button>
+                  )}
+                </div>
+              </form>
+            </div>
+              {pointsLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+                  ))}
+                </div>
+              ) : !selectedCategoryId ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Pilih kategori di panel kiri untuk mengelola butir</p>
+              ) : categoryPoints.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Belum ada butir. Tambah butir pertama di form di atas.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {categoryPoints.map((point, idx) => (
+                    <li key={point.id} className={`p-3 rounded-lg border transition-colors ${editingPoint?.id === point.id ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-gray-900/50"}`}>
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                        <span className="font-medium text-gray-900 dark:text-gray-100 flex-1 truncate">{point.title}</span>
+                        <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded capitalize">{point.input_type.replace("_", " ")}</span>
+                        {point.is_required && <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded">Wajib</span>}
+                        {!point.is_active && <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">Nonaktif</span>}
+                      </div>
+                      <div className="flex items-center justify-end gap-2 mt-2">
+                        <button onClick={() => movePoint(point.id, "up")} disabled={idx === 0} className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30" title="Naik"><ArrowUp className="w-4 h-4" /></button>
+                        <button onClick={() => movePoint(point.id, "down")} disabled={idx === categoryPoints.length - 1} className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30" title="Turun"><ArrowDown className="w-4 h-4" /></button>
+                        <button onClick={() => { setEditingPoint(point); setPointForm({ sop_category_id: point.sop_category_id, title: point.title, instruction: point.instruction, input_type: point.input_type, is_required: point.is_required, target_time: point.target_time || "", tolerance_minutes: point.tolerance_minutes || 15, active_days: point.active_days, number_min: point.number_min?.toString() || "", number_max: point.number_max?.toString() || "", sort_order: point.sort_order, is_active: point.is_active }); }} className="p-1 text-gray-400 hover:text-blue-600" title="Edit"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDuplicatePoint(point.id)} className="p-1 text-gray-400 hover:text-green-600" title="Duplikat"><Copy className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeletePoint(point.id)} className="p-1 text-gray-400 hover:text-red-600" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+        {/* Resizer 2 */}
+        <div
+          className="w-1 cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-blue-300 transition-colors flex items-center justify-center"
+          onMouseDown={(e) => {
+            const startX = e.clientX;
+            const startCenter = panelWidths.center;
+            const onMouseMove = (e: MouseEvent) => {
+              const delta = ((e.clientX - startX) / window.innerWidth) * 100;
+              const newCenter = Math.max(25, Math.min(60, startCenter + delta));
+              setPanelWidths((prev) => ({ ...prev, center: newCenter }));
+            };
+            const onMouseUp = () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+          }}
+        >
+          <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        </div>
+
+        {/* Panel 3: Editor / Preview */}
+        <div
+          className={`bg-white dark:bg-gray-800 overflow-y-auto transition-all duration-200 ${
+            panelWidths.right === 0 ? "w-0 min-w-0" : "w-[30%] min-w-[280px] max-w-[400px]"
+          }`}
+          style={{ width: `${panelWidths.right}%` }}
+        >
+          <div className="p-4 border-b">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{editingPoint ? "Editor Butir" : selectedCategory ? `Kategori: ${selectedCategory.name}` : "Pilih Kategori"}</h3>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {showPreview ? (
+              <div className="space-y-4">
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Mode Pratinjau (seperti tampilan petugas)</p>
+                {selectedCategory ? (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{selectedCategory.name}</h4>
+                    <div className="space-y-2">
+                      {categoryPoints.map((point) => (
+                        <div key={point.id} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-gray-900 dark:text-gray-100">{point.title}</span>
+                            <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded capitalize">{point.input_type.replace("_", " ")}</span>
+                            {point.is_required && <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded">Wajib</span>}
+                          </div>
+                          {point.instruction && <p className="text-sm text-gray-500 dark:text-gray-400">{point.instruction}</p>}
+                          {point.target_time && <p className="text-xs text-amber-600 dark:text-amber-400">Target: {point.target_time} (±{point.tolerance_minutes} menit)</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 text-center py-8">Pilih kategori untuk pratinjau</p>
+                )}
+              </div>
+            ) : editingPoint ? (
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">Detail Butir</h4>
+                <div className="space-y-2 text-sm">
+                  <div><span className="text-gray-500 dark:text-gray-400">ID:</span> <code className="ml-2">{editingPoint.id.slice(0, 12)}...</code></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Kategori:</span> <span className="ml-2">{selectedCategory?.name}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Tipe Input:</span> <span className="ml-2 capitalize">{editingPoint.input_type.replace("_", " ")}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Wajib:</span> <span className="ml-2">{editingPoint.is_required ? "Ya" : "Tidak"}</span></div>
+                  {editingPoint.target_time && <div><span className="text-gray-500 dark:text-gray-400">Target:</span> <span className="ml-2">{editingPoint.target_time} (±{editingPoint.tolerance_minutes} menit)</span></div>}
+                  {editingPoint.number_min !== null && <div><span className="text-gray-500 dark:text-gray-400">Range:</span> <span className="ml-2">{editingPoint.number_min} - {editingPoint.number_max}</span></div>}
+                  <div><span className="text-gray-500 dark:text-gray-400">Urutan:</span> <span className="ml-2">{editingPoint.sort_order}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Status:</span> <span className="ml-2">{editingPoint.is_active ? "Aktif" : "Nonaktif"}</span></div>
+                </div>
+              </div>
+            ) : selectedCategory ? (
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">Info Kategori</h4>
+                <div className="space-y-2 text-sm">
+                  <div><span className="text-gray-500 dark:text-gray-400">Nama:</span> <span className="ml-2">{selectedCategory.name}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Urutan:</span> <span className="ml-2">{selectedCategory.sort_order}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Status:</span> <span className="ml-2">{selectedCategory.is_active ? "Aktif" : "Nonaktif"}</span></div>
+                  <div><span className="text-gray-500 dark:text-gray-400">Jumlah Butir:</span> <span className="ml-2">{categoryPoints.length}</span></div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">Pilih kategori di panel kiri atau butir di panel tengah untuk melihat detail</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

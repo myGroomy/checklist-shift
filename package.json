@@ -1,0 +1,19 @@
+{
+  "name": "checklist-shift",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc --noEmit -p tsconfig.base.json"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

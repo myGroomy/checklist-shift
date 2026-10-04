@@ -194,17 +194,19 @@ Jika dokumen bertentangan dengan kode atau dengan instruksi, BERHENTI dan tanyak
 
 - Akordeon vs tab untuk Kategori SOP; apakah admin memakai HP.
 
-## 12. Perintah (TBD, isi setelah Fase 0)
+## 12. Perintah (terverifikasi Fase 0, npm workspaces)
 
-- Install: TBD
+- Install: `npm install` (root)
 
-- Dev web / api: TBD
+- Dev api: `npm run dev --workspace=apps/api` (butuh `.env`, default `:3001` via `API_PORT`)
 
-- Lint / typecheck / test: TBD
+- Dev web: `npm run dev --workspace=apps/web` (default `:3000`, rewrites `/api/*` ke api via `API_BASE`)
 
-- Build: TBD
+- Typecheck: `npx tsc --noEmit -p packages/shared/tsconfig.json`, `npx tsc --noEmit -p apps/api/tsconfig.json --allowImportingTsExtensions`
 
-Jangan menebak perintah. Jika belum terdokumentasi, tanyakan.
+- Setup registry: `npm run setup:registry --workspace=apps/api` (idempoten, butuh SA Editor)
+
+- Build: TBD (belum diverifikasi)
 
 ## 13. Saat Ragu
 

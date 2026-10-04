@@ -1,0 +1,35 @@
+{
+  "name": "apps-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build --workspace=@checklist-shift/shared && tsx --env-file=../../.env src/index.ts",
+    "build": "npm run build --workspace=@checklist-shift/shared && tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "setup:registry": "tsx --env-file=../../.env src/setup-registry.ts",
+    "setup:cabang": "tsx --env-file=../../.env src/setup-cabang.ts",
+    "setup:admin": "tsx --env-file=../../.env src/setup-admin.ts",
+    "verify:fase1": "tsx --env-file=../../.env src/verify-fase1.ts",
+    "verify:fase2": "tsx --env-file=../../.env src/verify-fase2.ts",
+    "verify:fase3": "tsx --env-file=../../.env src/verify-fase3.ts",
+    "verify:fase4": "tsx --env-file=../../.env src/verify-fase4.ts",
+    "verify:fase5": "tsx --env-file=../../.env src/verify-fase5.ts",
+    "verify:fase6": "tsx --env-file=../../.env src/verify-fase6.ts"
+  },
+  "dependencies": {
+    "@checklist-shift/shared": "*",
+    "@hono/node-server": "^1.13.0",
+    "@node-rs/argon2": "^2.2.1",
+    "@upstash/redis": "^1.39.0",
+    "googleapis": "^140.0.0",
+    "hono": "^4.7.0",
+    "jose": "^6.2.12",
+    "ulid": "^3.0.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

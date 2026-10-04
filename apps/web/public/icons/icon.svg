@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#1f2937"/>
+  <!-- Clipboard icon -->
+  <rect x="128" y="100" width="256" height="320" rx="16" fill="none" stroke="white" stroke-width="8"/>
+  <rect x="168" y="80" width="176" height="32" rx="8" fill="white"/>
+  <!-- Check marks -->
+  <path d="M160 200 L200 240 L280 180" fill="none" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M160 260 L200 300 L280 240" fill="none" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M160 320 L200 360 L280 300" fill="none" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Clock indicator -->
+  <circle cx="380" cy="380" r="60" fill="white" opacity="0.2"/>
+  <path d="M380 330 L380 370 L410 390" fill="none" stroke="white" stroke-width="6" stroke-linecap="round"/>
+</svg>
